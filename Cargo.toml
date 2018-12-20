@@ -1,0 +1,14 @@
+[package]
+name = "evrecovery"
+version = "1.0.0"
+authors = ["Steve Muller <steve.muller@outlook.com>"]
+license = "GPL-3.0"
+
+[lib]
+name = "evrecovery"
+crate-type = ["rlib", "dylib"]
+path = "src/lib/mod.rs"
+
+[dependencies]
+libflate = "^0.1"
+clap = "^2.27.0"
