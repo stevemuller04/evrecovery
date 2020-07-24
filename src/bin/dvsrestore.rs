@@ -59,12 +59,19 @@ fn main() {
 			.short("t")
 			.long("target")
 			.required(false))
+		.arg(Arg::with_name("ext")
+			.value_name("FILEEXT")
+			.help("The file extension that shall be used for outsourced files. The full name of the outsourced file will be constructed as '<file name of the dvs file>.<ext>'.")
+			.long("ext")
+			.default_value("dvf")
+			.required(false))
 	.get_matches();
 
 	let verbose = matches.occurrences_of("verbose") as i8 - 1;
 	let inputfile = matches.value_of("input").unwrap_or("");
 	let target_dir = matches.value_of("target").unwrap_or("");
 	let pathonly = matches.occurrences_of("path-only") > 0;
+	let outsourced_extension = matches.value_of("ext").unwrap();
 
 	let mut debug = Debug::new(stderr(), verbose);
 	let input: Box<Read> = match inputfile {
@@ -74,7 +81,7 @@ fn main() {
 
 	let inputfile_outsourced: Option<String> = match inputfile {
 		"" | "-" => Option::None,
-		_ => if inputfile.to_lowercase().ends_with(".dvs") { Option::Some(format!("{}.dvf", &inputfile[..inputfile.len()-4])) } else { Option::None },
+		_ => if inputfile.to_lowercase().ends_with(".dvs") { Option::Some(format!("{}.{}", &inputfile[..inputfile.len()-4], outsourced_extension)) } else { Option::None },
 	};
 
 	if let Err(e) = process(input, target_dir, pathonly, inputfile_outsourced, &mut debug) {
