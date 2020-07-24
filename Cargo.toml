@@ -1,6 +1,6 @@
 [package]
 name = "evrecovery"
-version = "1.0.0"
+version = "1.1.0"
 authors = ["Steve Muller <steve.muller@outlook.com>"]
 license = "GPL-3.0"
 

@@ -64,7 +64,9 @@ dvsrestore -t $TARGETDIR $DVSFILE
 
 Note that `dvsrestore` will try to restore out-sourced archives if the `FileContentStream` embedded file does not exist.
 See the paragraph "Embedded vs. out-sourced files" below for explanations.
+Starting from v1.1.0, it will first look for out-sourced archives, and only proceeds to extracting embedded files if no out-sourced archive exists.
 The input file must be specified as a path, though; it will not work when reading from STDIN.
+The out-sourced file path is constructed as `<input file path without extension>.dvf`. The extension (`dvf` in this case) can be customised with the `--ext` flag.
 
 **Remarks:**
 If the input file is missing, the utility reads from stdin instead.
