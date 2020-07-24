@@ -169,10 +169,12 @@ fn process_dump(input: impl Read, target_dir: &str, inputfile_outsourced: Option
 		},
 	};
 
-	match process_dump_object(&mut container, &mut target_file, debug) {
+	// First look for an outsourced file
+	match process_dump_outsourced(inputfile_outsourced, &mut target_file, debug) {
 		Ok(true) => Ok(()),
 		Ok(false) => {
-			match process_dump_outsourced(inputfile_outsourced, &mut target_file, debug) {
+			// If there is no outsourced file, look for an embedded file
+			match process_dump_object(&mut container, &mut target_file, debug) {
 				Ok(true) => Ok(()),
 				Ok(false) => {
 					Err(Error::new(ErrorKind::InvalidData, "Unable to find embedded file '/**/FileContentStream', and no outsourced file can be found!"))
