@@ -162,53 +162,77 @@ fn process_dump(input: impl Read, target_dir: &str, inputfile_outsourced: Option
 		},
 	};
 
+	match process_dump_object(&mut container, &mut target_file, debug) {
+		Ok(true) => Ok(()),
+		Ok(false) => {
+			match process_dump_outsourced(inputfile_outsourced, &mut target_file, debug) {
+				Ok(true) => Ok(()),
+				Ok(false) => {
+					Err(Error::new(ErrorKind::InvalidData, "Unable to find embedded file '/**/FileContentStream', and no outsourced file can be found!"))
+				},
+				Err(e) => Err(e),
+			}
+		},
+		Err(e) => Err(e),
+	}
+}
+
+fn process_dump_object(container: &mut Container<SeekableRead>, target_file: &mut Box<Write>, debug: &mut Debug) -> Result<bool, Error> {
 	// Find the object that contains the archived data
-	// In the CFBF file, there is the embedded file '/Sharable Content/Archivable Item/FileContentStream'
+	// In the CFBF file, this is the embedded file '/Sharable Content/Archivable Item/FileContentStream'
+	// But let's be more generous and search for any 'FileContentStream' in the entire file
 	debug.logln(0, format!("Locating archived data in the CFBF file ..."));
-	//let archived_data_object = container.find_child_by_path(&["Root Entry".to_owned(), "Sharable Content".to_owned(), "Archivable Item".to_owned(), "FileContentStream".to_owned()], debug)?;
 	let archived_data_object = container.find_child_by_name("FileContentStream", debug)?;
 
 	match archived_data_object {
 		// If there is an embedded file 'FileContentStream', just copy it to the output
 		ObjectResult::Ok(object) => {
-			debug.logln(0, format!("Found '/Sharable Content/Archivable Item/FileContentStream'."));
+			debug.logln(0, format!("Found '/**/FileContentStream'."));
 			debug.logln(0, format!("Dumping archived data ..."));
-			container.dump_stream(&object, &mut target_file, debug)?;
+			container.dump_stream(&object, target_file, debug)?;
 			debug.logln(0, format!("Done."));
-			Ok(())
+			Ok(true)
 		},
-		// If there is no embedded file 'FileContentStream', look for an outsourced file
+		// If there is no embedded file 'FileContentStream',
+		// return 'false' to indicate that no object has been found
 		ObjectResult::None => {
-			debug.logln(0, format!("The embedded file '/Sharable Content/Archivable Item/FileContentStream' does not exist in this file!"));
-			match inputfile_outsourced {
-				Option::None => Err(Error::new(ErrorKind::InvalidData, "Unable to find embedded file '/Sharable Content/Archivable Item/FileContentStream', and no outsourced file can be deduced (reading from STDIN)!")),
-				Option::Some(inputfile_outsourced) => {
-					debug.log(0, format!("Looking for outsourced file '{}' ... ", inputfile_outsourced));
-					match PathBuf::from(inputfile_outsourced).canonicalize() {
-						// Outsourced file exists
-						Ok(inputfile_outsourced) => {
-							debug.logln(0, format!("OK."));
-
-							debug.log(0, format!("Opening '{:?}' for reading ...", inputfile_outsourced));
-							let mut inputfile_outsourced = File::open(inputfile_outsourced)?;
-							debug.logln(0, format!("Done."));
-
-							debug.log(0, format!("Copying outsourced file ..."));
-							copy(&mut inputfile_outsourced, &mut target_file)?;
-							debug.logln(0, format!("Done."));
-							Ok(())
-						}
-						// Outsourced file does not exist
-						Err(_) => {
-							debug.logln(0, format!("not found!"));
-							Err(Error::new(ErrorKind::InvalidData, "Unable to find embedded file '/Sharable Content/Archivable Item/FileContentStream', and no outsourced file can be found!"))
-						}
-					}
-				},
-			}
-		},
+			debug.logln(0, format!("The embedded file '/**/FileContentStream' does not exist in this file!"));
+			Ok(false)
+		}
 	}
+}
 
+fn process_dump_outsourced(inputfile_outsourced: Option<String>, target_file: &mut Write, debug: &mut Debug) -> Result<bool, Error> {
+	match inputfile_outsourced {
+		Option::None => {
+			debug.logln(0, format!("No outsourced file can be deduced (reading from STDIN)! Skipping."));
+			Ok(false)
+		},
+		Option::Some(inputfile_outsourced) => {
+			debug.log(0, format!("Looking for outsourced file '{}' ... ", inputfile_outsourced));
+			match PathBuf::from(inputfile_outsourced).canonicalize() {
+				// If the outsourced file exists, copy its contents to the target file
+				Ok(inputfile_outsourced) => {
+					debug.logln(0, format!("OK."));
+
+					debug.log(0, format!("Opening '{:?}' for reading ...", inputfile_outsourced));
+					let mut inputfile_outsourced = File::open(inputfile_outsourced)?;
+					debug.logln(0, format!("Done."));
+
+					debug.log(0, format!("Copying outsourced file ..."));
+					copy(&mut inputfile_outsourced, target_file)?;
+					debug.logln(0, format!("Done."));
+					Ok(true)
+				}
+				// If the outsourced file does not exist,
+				// return 'false' to indicate that the outsourced file has not been found
+				Err(_) => {
+					debug.logln(0, format!("not found!"));
+					Ok(false)
+				}
+			}
+		}
+	}
 }
 
 /// Reads an embedded file and interpretes it as a UTF-16 string (prefixed by a byte length) encoding a path.
